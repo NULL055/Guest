@@ -203,56 +203,64 @@
 
         // 绘制转盘 - 使用CSS方式修复
         function drawWheel() {
-            const sectionCount = sections.length;
-            const angle = 360 / sectionCount;
+    const sectionCount = sections.length;
+    const angle = 360 / sectionCount;
 
-            wheelElement.innerHTML = '';
+    wheelElement.innerHTML = '';
 
-            // 创建容器用于旋转
-            const container = document.createElement('div');
-            container.style.position = 'relative';
-            container.style.width = '100%';
-            container.style.height = '100%';
-            container.style.borderRadius = '50%';
-            container.style.overflow = 'hidden';
+    // 创建容器用于旋转
+    const container = document.createElement('div');
+    container.style.position = 'relative';
+    container.style.width = '100%';
+    container.style.height = '100%';
 
-            // 创建每个扇形区块
-            for (let i = 0; i < sectionCount; i++) {
-                const section = document.createElement('div');
-                section.style.position = 'absolute';
-                section.style.width = '50%';
-                section.style.height = '50%';
-                section.style.transformOrigin = '100% 100%';
-                section.style.left = '50%';
-                section.style.top = '0';
-                section.style.transform = `rotate(${i * angle}deg)`;
-                section.style.backgroundColor = sections[i].color;
+    // 为每个扇形创建独立的SVG
+    for (let i = 0; i < sectionCount; i++) {
+        const startAngle = i * angle - 90;
+        const endAngle = (i + 1) * angle - 90;
 
-                // 使用clip-path创建扇形
-                section.style.clipPath = `polygon(100% 100%, 0 0, 100% 0)`;
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("style", "position:absolute; top:0; left:0; width:100%; height:100%;");
 
-                // 添加文字
-                const textContainer = document.createElement('div');
-                textContainer.style.position = 'absolute';
-                textContainer.style.left = '70%';
-                textContainer.style.top = '25%';
-                textContainer.style.transform = `rotate(${angle/2}deg)`;
-                textContainer.style.transformOrigin = '0 70px';
-                textContainer.style.textAlign = 'center';
-                textContainer.style.width = '60px';
-                textContainer.style.color = 'white';
-                textContainer.style.fontWeight = 'bold';
-                textContainer.style.textShadow = '1px 1px 2px black';
-                textContainer.style.fontSize = '14px';
-                textContainer.style.whiteSpace = 'nowrap';
-                textContainer.textContent = sections[i].text;
+        const path = document.createElementNS(svgNS, "path");
+        const largeArcFlag = angle > 180 ? 1 : 0;
 
-                section.appendChild(textContainer);
-                container.appendChild(section);
-            }
+        // 计算起点和终点坐标
+        const x1 = 250 + 250 * Math.cos(startAngle * Math.PI / 180);
+        const y1 = 250 + 250 * Math.sin(startAngle * Math.PI / 180);
+        const x2 = 250 + 250 * Math.cos(endAngle * Math.PI / 180);
+        const y2 = 250 + 250 * Math.sin(endAngle * Math.PI / 180);
 
-            wheelElement.appendChild(container);
-        }
+        const pathData = `M 250,250 L ${x1},${y1} A 250,250 0 ${largeArcFlag},1 ${x2},${y2} Z`;
+        path.setAttribute("d", pathData);
+        path.setAttribute("fill", sections[i].color);
+
+        svg.appendChild(path);
+
+        // 添加文字
+        const textAngle = (i * angle + angle / 2 - 90) * Math.PI / 180;
+        const textRadius = 180;
+        const textX = 250 + textRadius * Math.cos(textAngle);
+        const textY = 250 + textRadius * Math.sin(textAngle);
+
+        const text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", textX);
+        text.setAttribute("y", textY);
+        text.setAttribute("fill", "white");
+        text.setAttribute("font-weight", "bold");
+        text.setAttribute("font-size", "14px");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "middle");
+        text.setAttribute("text-shadow", "1px 1px 2px black");
+        text.textContent = sections[i].text;
+
+        svg.appendChild(text);
+        container.appendChild(svg);
+    }
+
+    wheelElement.appendChild(container);
+}
 
         // 开始抽奖
         function spinWheel() {
