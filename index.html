@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转盘抽奖</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            max-width: 1200px;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+        }
+
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            border: 8px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            transition: transform 4s cubic-bezier(0.17, 0.67, 0.14, 0.93);
+        }
+
+        .wheel-pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: #ff3b30;
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 10;
+        }
+
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 300px;
+        }
+
+        .section-form {
+            margin-bottom: 20px;
+        }
+
+        .section-item {
+            display: flex;
+            margin-bottom: 10px;
+            gap: 5px;
+        }
+
+        input, button, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .spin-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>转盘抽奖</h1>
+
+    <div class="container">
+        <div class="wheel-container">
+            <div class="wheel-pointer"></div>
+            <div class="wheel" id="wheel"></div>
+        </div>
+
+        <div class="control-panel">
+            <div class="section-form">
+                <h3>设置转盘区块</h3>
+                <label for="sectionCount">区块数量:</label>
+                <input type="number" id="sectionCount" min="2" max="12" value="6">
+                <button id="generateSections">生成区块设置</button>
+
+                <div id="sectionsConfig"></div>
+                <button id="createWheel" class="spin-btn">创建转盘</button>
+            </div>
+
+            <button id="spinButton" class="spin-btn" disabled>开始抽奖</button>
+
+            <div id="result" class="result hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // 预定义颜色数组
+        const COLORS = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFBE0B', '#FB5607', '#FF006E',
+            '#8338EC', '#3A86FF', '#38B000', '#9EF01A', '#FF9E00', '#9D4EDD'
+        ];
+
+        // 全局变量
+        let sections = [];
+        let isSpinning = false;
+
+        // DOM元素
+        const sectionCountInput = document.getElementById('sectionCount');
+        const generateSectionsBtn = document.getElementById('generateSections');
+        const sectionsConfigDiv = document.getElementById('sectionsConfig');
+        const createWheelBtn = document.getElementById('createWheel');
+        const spinButton = document.getElementById('spinButton');
+        const wheelElement = document.getElementById('wheel');
+        const resultElement = document.getElementById('result');
+
+        // 生成区块设置表单
+        function generateSectionsForm() {
+            const count = parseInt(sectionCountInput.value);
+            if (count < 2 || count > 12) {
+                alert('区块数量必须在2-12之间');
+                return;
+            }
+
+            let html = '<h4>设置每个区块内容:</h4>';
+            for (let i = 0; i < count; i++) {
+                html += `
+                    <div class="section-item">
+                        <span>区块 ${i + 1}:</span>
+                        <input type="text" class="section-text" placeholder="输入奖项名称" data-index="${i}">
+                    </div>
+                `;
+            }
+            sectionsConfigDiv.innerHTML = html;
+        }
+
+        // 创建转盘
+        function createWheel() {
+            sections = [];
+            const inputs = document.querySelectorAll('.section-text');
+
+            // 收集区块数据
+            for (let i = 0; i < inputs.length; i++) {
+                const text = inputs[i].value.trim() || `奖项${i + 1}`;
+                sections.push({
+                    text: text,
+                    color: COLORS[i % COLORS.length]
+                });
+            }
+
+            // 绘制转盘
+            drawWheel();
+
+            // 启用抽奖按钮
+            spinButton.disabled = false;
+            resultElement.classList.add('hidden');
+        }
+
+        // 绘制转盘 - 使用CSS方式修复
+        function drawWheel() {
+            const sectionCount = sections.length;
+            const angle = 360 / sectionCount;
+
+            wheelElement.innerHTML = '';
+
+            // 创建容器用于旋转
+            const container = document.createElement('div');
+            container.style.position = 'relative';
+            container.style.width = '100%';
+            container.style.height = '100%';
+            container.style.borderRadius = '50%';
+            container.style.overflow = 'hidden';
+
+            // 创建每个扇形区块
+            for (let i = 0; i < sectionCount; i++) {
+                const section = document.createElement('div');
+                section.style.position = 'absolute';
+                section.style.width = '50%';
+                section.style.height = '50%';
+                section.style.transformOrigin = '100% 100%';
+                section.style.left = '50%';
+                section.style.top = '0';
+                section.style.transform = `rotate(${i * angle}deg)`;
+                section.style.backgroundColor = sections[i].color;
+
+                // 使用clip-path创建扇形
+                section.style.clipPath = `polygon(100% 100%, 0 0, 100% 0)`;
+
+                // 添加文字
+                const textContainer = document.createElement('div');
+                textContainer.style.position = 'absolute';
+                textContainer.style.left = '70%';
+                textContainer.style.top = '25%';
+                textContainer.style.transform = `rotate(${angle/2}deg)`;
+                textContainer.style.transformOrigin = '0 70px';
+                textContainer.style.textAlign = 'center';
+                textContainer.style.width = '60px';
+                textContainer.style.color = 'white';
+                textContainer.style.fontWeight = 'bold';
+                textContainer.style.textShadow = '1px 1px 2px black';
+                textContainer.style.fontSize = '14px';
+                textContainer.style.whiteSpace = 'nowrap';
+                textContainer.textContent = sections[i].text;
+
+                section.appendChild(textContainer);
+                container.appendChild(section);
+            }
+
+            wheelElement.appendChild(container);
+        }
+
+        // 开始抽奖
+        function spinWheel() {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            spinButton.disabled = true;
+            resultElement.classList.add('hidden');
+
+            // 随机旋转角度(至少5圈)
+            const spins = 5 + Math.random() * 5;
+            const extraRotation = Math.random() * 360;
+            const totalRotation = spins * 360 + extraRotation;
+
+            // 应用旋转动画
+            wheelElement.style.transform = `rotate(${totalRotation}deg)`;
+
+            // 计算结果
+            setTimeout(() => {
+                const sectionAngle = 360 / sections.length;
+                // 指针在顶部，所以需要计算相对角度
+                const normalizedRotation = totalRotation % 360;
+                const pointerAngle = (360 - normalizedRotation + 90) % 360; // 加90度因为指针在顶部
+                const sectionIndex = Math.floor(pointerAngle / sectionAngle);
+
+                // 显示结果
+                resultElement.textContent = `恭喜你抽中了: ${sections[sectionIndex].text}`;
+                resultElement.classList.remove('hidden');
+
+                isSpinning = false;
+                spinButton.disabled = false;
+            }, 4000);
+        }
+
+        // 事件监听
+        generateSectionsBtn.addEventListener('click', generateSectionsForm);
+        createWheelBtn.addEventListener('click', createWheel);
+        spinButton.addEventListener('click', spinWheel);
+
+        // 初始化
+        generateSectionsForm();
+    </script>
+</body>
+</html>
