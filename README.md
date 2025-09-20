@@ -1,3 +1,3 @@
 # Guest
-a cool Guesting
+a cool Guesting.
 What motherfuck a fantastic one?!
